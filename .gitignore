@@ -10,3 +10,5 @@ __pycache__/
 .keys/
 .env.aevum
 .env.live
+docs/build/
+docs/vo/
