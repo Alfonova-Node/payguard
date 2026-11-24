@@ -65,7 +65,50 @@ the keystore or environment, never from a tracked file.
 | 4 | `SESSION_INACTIVE_OR_EXPIRED` — revoked or past expiry |
 | 5 | `PAYEE_NOT_ALLOWLISTED` — session is restricted to a fixed payee set |
 
-## Evidence — real run, real hashes
+## Live on Aevum Testnet
+
+Both contracts are deployed and the flow has been executed against the real network
+(chain `44005`, `tUSD8` at `0x456569838f1d43009A91ebA4263147Afd7233483`).
+
+```
+PayeeRegistry   0x5246b48c6791F1980f5F0d6b63b74A4940a2c7C8
+SpendEnvelope   0xE9960C67813CAD672Afe48d93E5199712f85C529
+owner           0x2d8ff0aAC4B5401960A1eCA691548f1544c322Aa
+demo payee      0xE9783E5BD2A9aD91DC142d64E8872CAF7064D6eD   (self-registered "Warung Bu Sri")
+session agent   0x3E29229E79528dfAe409F24FbeaC3e4FC4c4A377
+```
+
+Setup transactions:
+
+| step | transaction |
+|------|-------------|
+| payee registers itself | [`0x0fdca39bdd9f0c32e15214a6aca1269b20fd9be9f244cbffb9203572affb9a57`](https://explorer-test.qday.info/tx/0x0fdca39bdd9f0c32e15214a6aca1269b20fd9be9f244cbffb9203572affb9a57) |
+| envelope funded with 4 tUSD8 | [`0x3f5557e7da7a78fce38dbd1f68f95552c4710f0b77c562b471259f3a27bd48ca`](https://explorer-test.qday.info/tx/0x3f5557e7da7a78fce38dbd1f68f95552c4710f0b77c562b471259f3a27bd48ca) |
+| session opened (2 tUSD8/tx, 4 tUSD8/day) | [`0xf1172291c56691c5f5f2f6df9dcf4380ac4c1c85d56a8af5e3ba2c388df8bcde`](https://explorer-test.qday.info/tx/0xf1172291c56691c5f5f2f6df9dcf4380ac4c1c85d56a8af5e3ba2c388df8bcde) |
+
+Agent decisions on the live network:
+
+| invoice | request | verdict | transaction |
+|---------|---------|---------|-------------|
+| AEV-001 | 1.5 tUSD8 → registered payee | **paid** | [`0xe547bc31fafe307bed978b417a45da3ae589e06456a11202f3c87d47c2e0e4eb`](https://explorer-test.qday.info/tx/0xe547bc31fafe307bed978b417a45da3ae589e06456a11202f3c87d47c2e0e4eb) |
+| AEV-002 | 1.5 tUSD8 → same name, attacker wallet | **blocked** (1) | — |
+| AEV-003 | 3.0 tUSD8 → registered payee, over per-tx cap | **blocked** (2) | — |
+| AEV-004 | 1.5 tUSD8 → attacker wallet, refusal logged on-chain | **blocked** (1) | refusal: [`0x7257b7b40d2dd63f7343794aa2594c7f847f055b6197cd528540c3ee0ef2921c`](https://explorer-test.qday.info/tx/0x7257b7b40d2dd63f7343794aa2594c7f847f055b6197cd528540c3ee0ef2921c) |
+
+Final state read back from the chain:
+
+```
+tUSD8  envelope    2.500000   (4.0 funded − 1.5 paid)
+tUSD8  payee       1.500000   (exactly the invoice; no leakage)
+tUSD8  attacker    0.150000   (pre-existing dust, unrelated — nothing arrived from this run)
+session pymts/blocked   1 / 3   (every refusal counted on-chain, not just in logs)
+```
+
+The blocked counter is the part worth checking yourself: it lives in the session struct and
+is incremented by `logBlocked()`, so a refusal leaves a permanent mark even though no money
+moved. A refusal cannot be quietly dropped from the agent's own records.
+
+## Evidence — local reproducible run
 
 Reproduced end-to-end on a local anvil node with `scripts/anvil_e2e.sh`. Caps: 5 tUSD8 per
 transaction, 10 tUSD8 per day. Envelope funded with 50 tUSD8.
@@ -159,10 +202,12 @@ change is visible before the agent ever runs.
 
 - Payments are push-style tUSD8 transfers. Gasless meta-transactions and batched payroll
   runs are natural extensions of the same envelope.
-- One payee per name. Entity disambiguation (two different "Warung Bu Sri") needs an
-  identifier beyond the display name — the registry is structured for it, the UI is not.
-- The Aevum testnet deployment is wired but unfunded: it needs tUSD8 from the QDay faucet
-  for the demo run. The local proof above uses an identical contract byte-for-byte.
+- The registry pins one wallet per name, first come first served. Entity disambiguation (two
+  genuinely different "Warung Bu Sri") needs an identifier beyond the display name — the
+  registry is keyed by `nameHash` + `wallet`, so adding a merchant ID is a small extension,
+  but the UI for picking between them does not exist yet.
+- Testnet-only: caps are enforced in base units and there is no oracle, so this is a payment
+  primitive, not a fiat product.
 
 ## Layout
 

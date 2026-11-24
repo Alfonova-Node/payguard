@@ -7,3 +7,6 @@ audit.jsonl
 *.jsonl
 __pycache__/
 *.pyc
+.keys/
+.env.aevum
+.env.live

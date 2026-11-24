@@ -1,0 +1,23 @@
+[
+ {
+  "invoice_id": "AEV-001",
+  "payee_name": "Warung Bu Sri",
+  "payee_address": "0xE9783E5BD2A9aD91DC142d64E8872CAF7064D6eD",
+  "amount_base_units": 1500000,
+  "memo": "25 cups, legit payee"
+ },
+ {
+  "invoice_id": "AEV-002",
+  "payee_name": "Warung Bu Sri",
+  "payee_address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "amount_base_units": 1500000,
+  "memo": "same name, attacker wallet"
+ },
+ {
+  "invoice_id": "AEV-003",
+  "payee_name": "Warung Bu Sri",
+  "payee_address": "0xE9783E5BD2A9aD91DC142d64E8872CAF7064D6eD",
+  "amount_base_units": 3000000,
+  "memo": "over per-tx cap (2 tUSD8)"
+ }
+]

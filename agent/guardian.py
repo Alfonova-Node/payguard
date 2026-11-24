@@ -91,6 +91,7 @@ class Decision:
     reason: str = "OK"
     reason_code: int = 0
     tx_hash: str | None = None
+    refusal_tx: str | None = None
     remaining_today: int | None = None
     at: float = field(default_factory=time.time)
 
@@ -155,15 +156,21 @@ async def guard(invoice: dict, dry_run: bool) -> Decision:
     return d
 
 
-async def record_refusal(d: Decision) -> None:
+async def record_refusal(d: Decision) -> str | None:
     """Put the refusal on-chain too, so the audit trail is not just a local file."""
     if d.status != "blocked" or not AGENT_KEY:
-        return
-    await run([
+        return None
+    code, out, err = await run([
         CAST, "send", "--rpc-url", RPC, "--private-key", AGENT_KEY,
         ENVELOPE, "logBlocked(bytes32,address,uint256,uint8)",
         d.name_hash, d.payee_address, str(d.amount_base_units), str(d.reason_code),
     ])
+    if code != 0:
+        raise RuntimeError(f"logBlocked failed ({code}): {err or out}")
+    for line in out.splitlines():
+        if line.startswith("transactionHash"):
+            return line.split()[-1]
+    return None
 
 
 async def main() -> None:
@@ -194,13 +201,13 @@ async def main() -> None:
             )
         if d.status == "blocked":
             try:
-                await record_refusal(d)
+                d.refusal_tx = await record_refusal(d)
             except Exception:  # noqa: BLE001
                 pass
         with out.open("a") as f:
             f.write(json.dumps(asdict(d)) + "\n")
         results.append(d)
-        print(f"{d.status:8} {d.invoice_id:10} {d.payee_name:20} {d.reason:26} {d.tx_hash or ''}")
+        print(f"{d.status:8} {d.invoice_id:10} {d.payee_name:20} {d.reason:26} {d.tx_hash or d.refusal_tx or ''}")
 
     paid = sum(1 for r in results if r.status == "paid")
     blocked = sum(1 for r in results if r.status == "blocked")
