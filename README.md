@@ -70,14 +70,17 @@ the keystore or environment, never from a tracked file.
 Reproduced end-to-end on a local anvil node with `scripts/anvil_e2e.sh`. Caps: 5 tUSD8 per
 transaction, 10 tUSD8 per day. Envelope funded with 50 tUSD8.
 
-| # | invoice | expected | actual | reason | transaction |
+| # | invoice | expected | actual | reason | transaction (anvil) |
 |--:|---------|----------|--------|-------:|-------------|
-| 1 | 2.5 → Warung Bu Sri (registered wallet) | pay | **paid** | 0 | [`0xc71d58cc…930dda`](https://explorer.aevum.qday.io/tx/0xc71d58ccc25e29b62d6f2fa22ed7b4f19c6520485520468b6f020b6f22930dda) |
+| 1 | 2.5 → Warung Bu Sri (registered wallet) | pay | **paid** | 0 | `0xc71d58ccc25e29b62d6f2fa22ed7b4f19c6520485520468b6f020b6f22930dda` |
 | 2 | 2.5 → **same name, attacker wallet** | refuse | **blocked** | 1 | — |
 | 3 | 9.0 → registered payee (over per-tx cap) | refuse | **blocked** | 2 | — |
-| 4 | 5.0 → registered payee | pay | **paid** | 0 | [`0x354f8064…8b51bb4`](https://explorer.aevum.qday.io/tx/0x354f806420fc35151c91cf9665359e8e00be2c3b762dafbe6807312e28b51bb4) |
+| 4 | 5.0 → registered payee | pay | **paid** | 0 | `0x354f806420fc35151c91cf9665359e8e00be2c3b762dafbe6807312e28b51bb4` |
 | 5 | 4.0 → registered payee (10 already burned) | refuse | **blocked** | 3 | — |
-| 6 | 1.0 → registered payee, after `revokeSession` | refuse | **blocked** | 4 | revoke: `0x55271912…7b6ade` |
+| 6 | 1.0 → registered payee, after `revokeSession` | refuse | **blocked** | 4 | revoke: `0x55271912e8d735e46c85beb86aecb67245d315ee75693d8ebc06ab5f987b6ade` |
+
+These hashes are on a local anvil chain, not on Aevum — reproducible in one command, and
+that is the honest framing. The Aevum deployment below is wired and waiting on faucet gas.
 
 Balances after the run: envelope `50.0 → 47.5 tUSD8`, legitimate payee `+2.5 tUSD8`,
 attacker wallet `0.0`. The tokens moved exactly where the name said they would, and the
@@ -104,10 +107,38 @@ Against Aevum Testnet, `scripts/deploy.sh` does the same two deployments with a 
 prints the addresses to put in `.env`:
 
 ```bash
-AEVUM_RPC=https://rpc.qday.io
+AEVUM_RPC=https://rpc-test.qday.info
 TUSD8_ADDRESS=0x456569838f1d43009A91ebA4263147Afd7233483
 OWNER_PRIVATE_KEY=... bash scripts/deploy.sh
 ```
+
+### Verified network facts
+
+Checked directly against the chain, not copied from a blog post:
+
+```
+chain-id                44005            (0xABE5 — Aevum Testnet;
+                                         44001 is QDay Origin mainnet, 44003 its testnet)
+rpc                     https://rpc-test.qday.info
+tUSD8                   0x456569838f1d43009A91ebA4263147Afd7233483
+  name() / symbol()     "tUSD8" / "tUSD8"
+  decimals()            6
+  bytecode present      2,995 bytes at block 4,040,601
+```
+
+Gas is tQDAY, claimed from `https://faucet.qday.info` (5 tQDAY per 24h, plus a tUSD8 tab).
+That faucet only accepts a connected wallet — there is no address-paste field — so the first
+claim has to be signed by the deploying wallet. Once gas is in, the whole live demo is:
+
+```bash
+set -a && . ./.env && set +a
+REGISTRY_ADDRESS=... ENVELOPE_ADDRESS=... bash scripts/aevum_seed.sh   # payees, funding, session
+python3 agent/guardian.py agent/invoices.example.json
+```
+
+`scripts/aevum_seed.sh` registers each payee with that payee's own key, funds the envelope,
+opens the session, and reads the resulting session struct back off the chain so the state
+change is visible before the agent ever runs.
 
 ## Security properties worth stating
 
@@ -143,6 +174,7 @@ agent/guardian.py          asyncio payer: confirm → preview → pay, JSONL + o
 agent/invoices.example.json sample invoices including a lookalike payee
 scripts/anvil_e2e.sh       one-command local proof (deploy, wire, ready to run)
 scripts/deploy.sh          Aevum Testnet deployment
+scripts/aevum_seed.sh      live demo seeding: payees self-register, fund, open session
 ```
 
 MIT licensed.

@@ -13,5 +13,5 @@ line_length = 110
 tab_width = 4
 
 [rpc_endpoints]
-aevum = "https://rpc.qday.io"
+aevum = "https://rpc-test.qday.info"
 aevum_testnet = "${AEVUM_RPC_URL}"
