@@ -1,3 +1,5 @@
+<img src="docs/logo/pg_hex_128.png" alt="PayGuard" width="96" align="right">
+
 # PayGuard — an agent that physically cannot pay the wrong person
 
 Two Solidity primitives and one autonomous payer that together close the oldest hole in
